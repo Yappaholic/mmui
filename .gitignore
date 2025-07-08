@@ -1,4 +1,5 @@
 .zig-out
 .zig-cache
-.zig-out/**
+.zig-out/bin
+.zig-out/bin/mmui
 .zig-cache/**

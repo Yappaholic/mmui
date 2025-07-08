@@ -1,15 +1,15 @@
 const std = @import("std");
 const bind = @import("./bind.zig");
-const alloc = std.heap.page_allocator;
+var alloc = std.heap.c_allocator;
 const print = std.fmt.comptimePrint;
 
 const VERSION = "0.1.0";
 
-pub fn detect_config(cmd_arg: ?[]u8) ![]u8 {
+pub fn detect_config(config: *[]u8, cmd_arg: ?[]u8) !void {
     var config_file: []u8 = undefined;
     if (cmd_arg != null) {
-        config_file = cmd_arg.?;
-        return config_file;
+        config.* = cmd_arg.?;
+        return;
     }
     const config_home = std.posix.getenv("XDG_CONFIG_HOME");
     if (config_home == null) {
@@ -18,7 +18,9 @@ pub fn detect_config(cmd_arg: ?[]u8) ![]u8 {
     } else {
         config_file = try std.fmt.allocPrint(alloc, "{s}/.config/maomao/config.conf", .{config_home.?});
     }
-    return config_file;
+    config.* = try alloc.dupe(u8, config_file);
+    alloc.free(config_file);
+    return;
 }
 
 pub fn parse_flags(config: *[]u8, argv: [][*:0]u8) !i8 {
@@ -37,7 +39,7 @@ pub fn parse_flags(config: *[]u8, argv: [][*:0]u8) !i8 {
     }
     if (std.mem.eql(u8, flag, "-c") and argv.len == 2) {
         const config_path: []u8 = std.mem.span(argv[2]);
-        config.* = try detect_config(config_path);
+        try detect_config(config, config_path);
     } else {
         std.debug.print("No config path provided", .{});
         return 1;
@@ -47,6 +49,8 @@ pub fn parse_flags(config: *[]u8, argv: [][*:0]u8) !i8 {
 pub fn main() !void {
     const argv = std.os.argv;
     var config: []u8 = undefined;
+    config = try alloc.alloc(u8, 2048);
+    defer alloc.free(config);
     if (argv.len > 1) {
         const code: i8 = try parse_flags(&config, argv);
         switch (code) {
@@ -54,7 +58,7 @@ pub fn main() !void {
             0 => {},
             else => unreachable,
         }
-    } else config = try detect_config(null);
-    const bindings = try bind.search_bindings(config);
+    } else try detect_config(&config, null);
+    const bindings = try bind.search_bindings(&config);
     _ = try bind.generate_bindings(bindings);
 }
