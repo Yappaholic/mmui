@@ -20,24 +20,41 @@ pub fn remove_prefix(bind_str: *[]u8, entry: []const u8, query: []const u8) !voi
     bind_str.* = try alloc.alloc(u8, size);
     _ = std.mem.replace(u8, entry, query, "", bind_str.*);
 }
-pub fn populate_bind(bind_str: *[]u8, entry: []const u8) !BindingGroup {
+
+pub fn populate_bind(bind_str: *[]u8, entry: []const u8) !Binding {
+    var keybind: [2][]u8 = .{ "", "" };
+    var command: []u8 = undefined;
+    var arr_list = std.ArrayList([]u8).init(alloc);
+    var group: BindingGroup = undefined;
     if (std.mem.startsWith(u8, entry, "bind=")) {
         try remove_prefix(bind_str, entry, "bind=");
-        std.debug.print("default bind: {s}\n", .{bind_str.*});
-        return .Default;
+        //std.debug.print("default bind: {s}\n", .{bind_str.*});
+        group = .Default;
     } else if (std.mem.startsWith(u8, entry, "mousebind=")) {
         try remove_prefix(bind_str, entry, "mousebind=");
-        std.debug.print("mousebind: {s}\n", .{bind_str.*});
-        return .Mouse;
+        //std.debug.print("mousebind: {s}\n", .{bind_str.*});
+        group = .Mouse;
     } else if (std.mem.startsWith(u8, entry, "axisbind=")) {
         try remove_prefix(bind_str, entry, "axisbind=");
-        std.debug.print("axisbind: {s}\n", .{bind_str.*});
-        return .Axis;
+        //std.debug.print("axisbind: {s}\n", .{bind_str.*});
+        group = .Axis;
     } else if (std.mem.startsWith(u8, entry, "gesturebind=")) {
         try remove_prefix(bind_str, entry, "gesturebind=");
-        std.debug.print("gesturebind: {s}\n", .{bind_str.*});
-        return .Gesture;
+        //std.debug.print("gesturebind: {s}\n", .{bind_str.*});
+        group = .Gesture;
     } else unreachable;
+    var bind_iter = std.mem.splitAny(u8, bind_str.*, ",");
+    while (bind_iter.next()) |item| {
+        try arr_list.append(@constCast(item));
+    }
+    keybind = .{ arr_list.items[0], arr_list.items[1] };
+    const result_keybind = try std.mem.join(alloc, "+", &keybind);
+    command = arr_list.items[2];
+    return Binding{
+        .keybind = result_keybind,
+        .command = command,
+        .group = group,
+    };
 }
 pub fn generate_bindings(bindings: []u8) !void {
     var bindlist = std.ArrayList(Binding).init(alloc);
@@ -45,7 +62,12 @@ pub fn generate_bindings(bindings: []u8) !void {
     var binditer = std.mem.splitAny(u8, bindings, ";");
     while (binditer.next()) |entry| {
         var bind_str: []u8 = undefined;
-        _ = try populate_bind(&bind_str, entry);
+        const bind = try populate_bind(&bind_str, entry);
+        try bindlist.append(bind);
+    }
+
+    for (bindlist.items) |bind| {
+        std.debug.print("{s} : {s} : {any}\n", .{ bind.keybind, bind.command, bind.group });
     }
 }
 
