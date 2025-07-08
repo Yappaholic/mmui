@@ -3,7 +3,7 @@ const bind = @import("./bind.zig");
 var alloc = std.heap.c_allocator;
 const print = std.fmt.comptimePrint;
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.2";
 
 pub fn detect_config(config: *[]u8, cmd_arg: ?[]u8) !void {
     var config_file: []u8 = undefined;
