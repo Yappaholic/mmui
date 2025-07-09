@@ -4,6 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
 
     const optimize = b.standardOptimizeOption(.{});
+    const dvui_dep = b.dependency("dvui", .{ .target = target, .optimize = optimize, .backend = .raylib });
 
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -17,6 +18,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.linkLibC();
+    exe.root_module.addImport("dvui", dvui_dep.module("dvui_raylib"));
 
     b.installArtifact(exe);
 

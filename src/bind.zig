@@ -52,7 +52,7 @@ pub fn populate_bind(bind_str: *[]u8, entry: []const u8) !Binding {
         try arr_list.append(@constCast(item));
     }
 
-    std.debug.print("keybind length is: {d}\n", .{arr_list.items.len});
+    //std.debug.print("keybind length is: {d}\n", .{arr_list.items.len});
 
     switch (arr_list.items.len) {
         0...2 => {
@@ -98,9 +98,9 @@ pub fn generate_bindings(bindings: []u8) !void {
         try bindlist.append(bind);
     }
 
-    for (bindlist.items) |bind| {
-        std.debug.print("{s} : {s} : {any}\n", .{ bind.keybind, bind.command, bind.group });
-    }
+    //for (bindlist.items) |bind| {
+    //   std.debug.print("{s} : {s} : {any}\n", .{ bind.keybind, bind.command, bind.group });
+    //}
 }
 
 pub fn search_bindings(config_file: *[]u8) ![]u8 {

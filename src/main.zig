@@ -1,7 +1,16 @@
 const std = @import("std");
 const bind = @import("./bind.zig");
+const dvui = @import("dvui");
+
 var alloc = std.heap.c_allocator;
-const print = std.fmt.comptimePrint;
+const RaylibBackend = dvui.backend;
+
+comptime {
+    std.debug.assert(@hasDecl(RaylibBackend, "RaylibBackend"));
+}
+
+const vsync = true;
+pub const c = RaylibBackend.c;
 
 const VERSION = "0.1.2";
 
@@ -47,6 +56,17 @@ pub fn parse_flags(config: *[]u8, argv: [][*:0]u8) !i8 {
     return 0;
 }
 pub fn main() !void {
+    var backend = try RaylibBackend.initWindow(.{
+        .gpa = alloc,
+        .size = .{ .w = 800.0, .h = 600.0 },
+        .vsync = vsync,
+        .title = "mmui",
+    });
+    defer backend.deinit();
+
+    var win = try dvui.Window.init(@src(), alloc, backend.backend(), .{});
+    defer win.deinit();
+
     const argv = std.os.argv;
     var config: []u8 = undefined;
     config = try alloc.alloc(u8, 2048);
@@ -61,4 +81,22 @@ pub fn main() !void {
     } else try detect_config(&config, null);
     const bindings = try bind.search_bindings(&config);
     _ = try bind.generate_bindings(bindings);
+
+    main_loop: while (true) {
+        c.BeginDrawing();
+
+        const nstime = win.beginWait(true);
+        try win.begin(nstime);
+
+        const quit = try backend.addAllEvents(&win);
+        if (quit) break :main_loop;
+
+        backend.clear();
+        const end_micros = try win.end(.{});
+
+        backend.setCursor(win.cursorRequested());
+
+        const wait_event_micros = win.waitTime(end_micros, null);
+        backend.EndDrawingWaitEventTimeout(wait_event_micros);
+    }
 }
