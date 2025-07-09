@@ -15,6 +15,10 @@ pub const BindingGroup = enum {
     Default,
 };
 
+pub const BindingError = error{
+    InvalidKeybinding,
+};
+
 pub fn remove_prefix(bind_str: *[]u8, entry: []const u8, query: []const u8) !void {
     const size = std.mem.replacementSize(u8, entry, query, "");
     bind_str.* = try alloc.alloc(u8, size);
@@ -23,33 +27,61 @@ pub fn remove_prefix(bind_str: *[]u8, entry: []const u8, query: []const u8) !voi
 
 pub fn populate_bind(bind_str: *[]u8, entry: []const u8) !Binding {
     var keybind: [2][]u8 = .{ "", "" };
+    var result_keybind: []u8 = undefined;
     var command: []u8 = undefined;
     var arr_list = std.ArrayList([]u8).init(alloc);
     var group: BindingGroup = undefined;
+
     if (std.mem.startsWith(u8, entry, "bind=")) {
         try remove_prefix(bind_str, entry, "bind=");
-        //std.debug.print("default bind: {s}\n", .{bind_str.*});
         group = .Default;
     } else if (std.mem.startsWith(u8, entry, "mousebind=")) {
         try remove_prefix(bind_str, entry, "mousebind=");
-        //std.debug.print("mousebind: {s}\n", .{bind_str.*});
         group = .Mouse;
     } else if (std.mem.startsWith(u8, entry, "axisbind=")) {
         try remove_prefix(bind_str, entry, "axisbind=");
-        //std.debug.print("axisbind: {s}\n", .{bind_str.*});
         group = .Axis;
     } else if (std.mem.startsWith(u8, entry, "gesturebind=")) {
         try remove_prefix(bind_str, entry, "gesturebind=");
-        //std.debug.print("gesturebind: {s}\n", .{bind_str.*});
         group = .Gesture;
     } else unreachable;
+
     var bind_iter = std.mem.splitAny(u8, bind_str.*, ",");
+
     while (bind_iter.next()) |item| {
         try arr_list.append(@constCast(item));
     }
-    keybind = .{ arr_list.items[0], arr_list.items[1] };
-    const result_keybind = try std.mem.join(alloc, "+", &keybind);
-    command = arr_list.items[2];
+
+    std.debug.print("keybind length is: {d}\n", .{arr_list.items.len});
+
+    switch (arr_list.items.len) {
+        0...2 => {
+            std.debug.print("invalid keybinding: {s}\n", .{bind_str.*});
+            return BindingError.InvalidKeybinding;
+        },
+        3 => {
+            command = arr_list.items[2];
+        },
+        4...5 => {
+            if (group != .Gesture) {
+                command = try std.mem.join(alloc, " ", arr_list.items[2..]);
+            } else {
+                command = try std.mem.join(alloc, " ", arr_list.items[3..]);
+            }
+        },
+        else => {
+            std.debug.print("invalid keybinding: {s}\n", .{bind_str.*});
+            return BindingError.InvalidKeybinding;
+        },
+    }
+
+    if (arr_list.items.len >= 4 and group == .Gesture) {
+        result_keybind = try std.mem.join(alloc, " | ", arr_list.items[1..3]);
+    } else {
+        keybind = .{ arr_list.items[0], arr_list.items[1] };
+        result_keybind = try std.mem.join(alloc, " | ", &keybind);
+    }
+
     return Binding{
         .keybind = result_keybind,
         .command = command,
