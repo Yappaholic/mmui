@@ -8,6 +8,13 @@ pub const Binding = struct {
     group: BindingGroup,
 };
 
+pub const Bindings = struct {
+    Mouse: []Binding,
+    Axis: []Binding,
+    Gesture: []Binding,
+    Default: []Binding,
+};
+
 pub const BindingGroup = enum {
     Mouse,
     Axis,
@@ -88,16 +95,32 @@ pub fn populate_bind(bind_str: *[]u8, entry: []const u8) !Binding {
         .group = group,
     };
 }
-pub fn generate_bindings(bindings: []u8) !void {
-    var bindlist = std.ArrayList(Binding).init(alloc);
-    defer bindlist.deinit();
+
+pub fn generate_bindings(bindings: []u8) !Bindings {
+    var binds_mouse = std.ArrayList(Binding).init(alloc);
+    var binds_axis = std.ArrayList(Binding).init(alloc);
+    var binds_gesture = std.ArrayList(Binding).init(alloc);
+    var binds_default = std.ArrayList(Binding).init(alloc);
     var binditer = std.mem.splitAny(u8, bindings, ";");
     while (binditer.next()) |entry| {
         var bind_str: []u8 = undefined;
         const bind = try populate_bind(&bind_str, entry);
-        try bindlist.append(bind);
+        switch (bind.group) {
+            .Axis => try binds_axis.append(bind),
+            .Mouse => try binds_mouse.append(bind),
+            .Gesture => try binds_gesture.append(bind),
+            .Default => try binds_default.append(bind),
+        }
     }
 
+    // zig fmt: off
+    return Bindings{
+        .Mouse = try binds_mouse.toOwnedSlice(), 
+        .Axis = try binds_axis.toOwnedSlice(), 
+        .Gesture = try binds_gesture.toOwnedSlice(), 
+        .Default = try binds_default.toOwnedSlice()};
+
+    // zig fmt: on
     //for (bindlist.items) |bind| {
     //   std.debug.print("{s} : {s} : {any}\n", .{ bind.keybind, bind.command, bind.group });
     //}
